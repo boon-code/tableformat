@@ -1,0 +1,8 @@
+[package]
+name = "tableparse"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+markdown-table-formatter = "0.3.0"
+regex = "1.11.1"
