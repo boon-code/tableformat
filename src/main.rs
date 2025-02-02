@@ -46,7 +46,6 @@ fn collect_lines(reader: &mut impl BufRead) -> (Vec<Line>, bool) {
     let mut v = Vec::new();
     loop {
         let mut buffer = String::new();
-        //let size = io::stdin().read_line(&mut buffer).unwrap_or(0);
         let size = reader.read_line(&mut buffer).unwrap_or(0);
         if size > 0 {
             let mut item = Line {
