@@ -2,7 +2,7 @@ use markdown_table_formatter as tfm;
 use regex::Regex;
 use std::io::{self, BufRead};
 
-const RX: &str = r"^([ ]*[/]?[*]+)(.*)";  // original
+const RX: &str = r"^([ ]*[/]?[*]*)(.*)";
 
 fn main() {
     let mut reader = io::stdin().lock();
@@ -79,6 +79,7 @@ fn fmt_table(txt: String) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use regex::Captures;
 
     const EXAMPLE: &str = r#"/** * terrible
  * my doxy shit
@@ -115,11 +116,36 @@ mod tests {
         assert_eq!(&EXAMPLE_NICE[0..(EXAMPLE_NICE.len() - 3)], result.as_str());
     }
 
-    #[test]
-    fn test_table_regex() {
+    fn capture<'a>(haystack: &'a str) -> Option<Captures<'a>> {
         let rx = Regex::new(&RX).unwrap();
-        let m = rx.captures("   /**    | bla |").unwrap();
+        rx.captures(haystack)
+    }
+
+    #[test]
+    fn test_table_regex_start() {
+        let m = capture("   /**    | bla |").unwrap();
         assert_eq!(m.get(1).unwrap().as_str(), "   /**");
         assert_eq!(m.get(2).unwrap().as_str(), "    | bla |");
+    }
+
+    #[test]
+    fn test_table_regex_comment() {
+        let m = capture("   *    | bla |").unwrap();
+        assert_eq!(m.get(1).unwrap().as_str(), "   *");
+        assert_eq!(m.get(2).unwrap().as_str(), "    | bla |");
+    }
+
+    #[test]
+    fn test_table_regex_comment_more_stars() {
+        let m = capture("   ****    | bla |").unwrap();
+        assert_eq!(m.get(1).unwrap().as_str(), "   ****");
+        assert_eq!(m.get(2).unwrap().as_str(), "    | bla |");
+    }
+
+    #[test]
+    fn test_table_regex_md_only_space() {
+        let m = capture("   | bla |").unwrap();
+        assert_eq!(m.get(1).unwrap().as_str(), "   ");
+        assert_eq!(m.get(2).unwrap().as_str(), "| bla |");
     }
 }
