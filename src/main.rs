@@ -2,6 +2,8 @@ use markdown_table_formatter as tfm;
 use regex::Regex;
 use std::io::{self, BufRead};
 
+const RX: &str = r"^([ ]*[/]?[*]+)(.*)";  // original
+
 fn main() {
     let mut reader = io::stdin().lock();
     let (lines, success) = collect_lines(&mut reader);
@@ -39,7 +41,7 @@ fn rewrite_lines(w: &mut impl io::Write, lines: Vec<Line>, success: bool) {
 }
 
 fn collect_lines(reader: &mut impl BufRead) -> (Vec<Line>, bool) {
-    let rx = Regex::new(r"^([ ]*[/]?[*]+)(.*)").unwrap();
+    let rx = Regex::new(&RX).unwrap();
     let mut result = true;
     let mut v = Vec::new();
     loop {
@@ -112,5 +114,13 @@ mod tests {
 
         let result = String::from_utf8_lossy(&w).to_string();
         assert_eq!(&EXAMPLE_NICE[0..(EXAMPLE_NICE.len() - 3)], result.as_str());
+    }
+
+    #[test]
+    fn test_table_regex() {
+        let rx = Regex::new(&RX).unwrap();
+        let m = rx.captures("   /**    | bla |").unwrap();
+        assert_eq!(m.get(1).unwrap().as_str(), "   /**");
+        assert_eq!(m.get(2).unwrap().as_str(), "    | bla |");
     }
 }
