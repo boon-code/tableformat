@@ -1,10 +1,105 @@
+use clap::{command, Parser};
 use markdown_table_formatter as tfm;
 use regex::Regex;
-use std::io::{self, BufRead};
+use std::{
+    fs::File,
+    io::{self, BufRead, BufReader},
+    path::Path,
+};
 
 const RX: &str = r"^([ ]*[/]?[*]*)(.*)";
+const RX2: &str = r"^([ ]*[/]?[*]*)([ ]*[|].*)";
 
-fn main() {
+type MyResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+// Command line parser
+
+#[derive(Parser, Debug)]
+#[command(version = env!("CARGO_PKG_VERSION"), author = "Manuel Huber")]
+pub struct Cli {
+    /// File to format
+    #[arg(long, short = 'p')]
+    pub path: Option<String>,
+}
+
+// Main
+
+fn main() -> MyResult<()> {
+    let args = Cli::parse();
+
+    if let Some(path) = args.path {
+        rewrite_file(Path::new(&path))?;
+    } else {
+        filter_main();
+    }
+
+    Ok(())
+}
+
+fn rewrite_file(path: &Path) -> MyResult<()> {
+    let file = File::open(path)?;
+    let mut reader = BufReader::new(file);
+    let mut writer = io::stdout().lock();
+    filter_file(&mut reader, &mut writer);
+    Ok(())
+}
+
+fn filter_file(reader: &mut impl BufRead, w: &mut impl io::Write) {
+    let rx = Regex::new(&RX2).unwrap();
+    let mut lines = Vec::new();
+    loop {
+        let mut buffer = String::new();
+        let size = reader.read_line(&mut buffer).unwrap_or(0);
+        if size > 0 {
+            let cur_line = &buffer[0..size];
+            if let Some(m) = rx.captures(cur_line) {
+                let item = Line {
+                    line: cur_line.to_string(),
+                    index: m.get(2).unwrap().start(),
+                };
+                lines.push(item);
+            } else {
+                write_buffered_lines(&mut lines, w);
+                let _ = write!(w, "{}", cur_line);
+            }
+        } else {
+            break; // end of file
+        }
+    }
+
+    write_buffered_lines(&mut lines, w);
+}
+
+fn write_buffered_lines(lines: &mut Vec<Line>, w: &mut impl io::Write) {
+    match lines.len() {
+        0 => {}
+        1 => {
+            let _ = write!(w, "{}", lines.get(0).unwrap().line);
+            lines.clear();
+        }
+        2.. => {
+            let lines_fx: Vec<String> = lines
+                .iter()
+                .map(|x| x.line[x.index..].to_string())
+                .collect();
+            let txt = lines_fx.join("");
+            let txt = fmt_table(txt);
+            let new: Vec<_> = txt.split_terminator("\n").collect();
+
+            assert_eq!(new.len(), lines.len());
+            assert!(new.len() <= lines.len());
+
+            for i in 0..(new.len()) {
+                let item = &lines[i];
+                let _ = write!(w, "{}{}\n", &(item.line[0..item.index]), new[i]);
+            }
+
+            lines.clear();
+        }
+    }
+}
+
+fn filter_main() {
     let mut reader = io::stdin().lock();
     let (lines, success) = collect_lines(&mut reader);
     drop(reader);
@@ -101,6 +196,16 @@ mod tests {
  * |       5 |     2      | bla        |
  * |       7 | blav cfddd | ha         |
  */"#;
+
+    #[test]
+    fn test_filter_complete_example() {
+        let mut w = Vec::new();
+        let mut x = EXAMPLE[..].as_bytes();
+        filter_file(&mut x, &mut w);
+
+        let result = String::from_utf8_lossy(&w).to_string();
+        assert_eq!(EXAMPLE_NICE, result.as_str());
+    }
 
     #[test]
     fn test_read_lines() {
