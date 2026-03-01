@@ -1,4 +1,4 @@
-use clap::{command, Parser};
+use clap::Parser;
 use markdown_table_formatter as tfm;
 use regex::Regex;
 use std::{
