@@ -145,7 +145,7 @@ fn get_range_from_lines(doc: &str, lines: RangeInclusive<usize>) -> Range<usize>
 }
 
 /// Use Comrak abstract syntax tree to find the locations (and alignments) of all GitHub Flavored Markdown tables in the `doc` string.
-pub fn get_tables(doc: &str) -> Vec<TableInDocument> {
+pub fn get_tables(doc: &'_ str) -> Vec<TableInDocument<'_>> {
     let arena: Arena<AstNode<'_>> = Arena::new();
     let ast: &AstNode<'_> = get_ast(&arena, doc);
 
